@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePosStore } from '@/lib/store/usePosStore';
 import { ArrowLeft, Package, Plus, Search, AlertTriangle, History, X, Check } from 'lucide-react';
@@ -27,6 +27,16 @@ export default function StockPage() {
     { id: 'm-2', productName: 'เอสเพรสโซ ร้อน', type: 'received', change: 50, note: 'รับเมล็ดกาแฟเข้าสต๊อก', time: '09:00 น.' },
   ]);
 
+  useEffect(() => {
+    fetch('/api/stock')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('stock load failed');
+        const payload = await response.json();
+        if (payload.balances && Object.keys(payload.balances).length > 0) setStockMap(payload.balances);
+      })
+      .catch(() => undefined);
+  }, []);
+
   // Adjust Modal State
   const [selectedProd, setSelectedProd] = useState<typeof products[0] | null>(null);
   const [adjustType, setAdjustType] = useState<'received' | 'waste' | 'adjustment'>('received');
@@ -41,12 +51,19 @@ export default function StockPage() {
     return matchesFilter && matchesSearch;
   });
 
-  const handleSaveStockAdjust = () => {
+  const handleSaveStockAdjust = async () => {
     if (!selectedProd || !adjustQty) return;
     const qtyNum = parseInt(adjustQty, 10) || 0;
     const change = adjustType === 'waste' ? -Math.abs(qtyNum) : Math.abs(qtyNum);
     const currentQty = stockMap[selectedProd.id] ?? 50;
     const newQty = Math.max(0, currentQty + change);
+
+    const response = await fetch('/api/stock', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ productId: selectedProd.id, movementType: adjustType, quantityChange: change, note: adjustNote }),
+    });
+    if (!response.ok) { window.alert('บันทึกสต็อกไม่สำเร็จ กรุณาลองใหม่'); return; }
 
     // Update stock balance
     setStockMap((prev) => ({ ...prev, [selectedProd.id]: newQty }));
