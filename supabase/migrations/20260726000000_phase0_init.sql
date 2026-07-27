@@ -219,7 +219,9 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- RLS Helper & Multi-tenant Policies
-CREATE OR REPLACE FUNCTION auth.is_store_member(p_store_id UUID)
+-- Supabase reserves the auth schema for its own objects. Keep application
+-- helper functions in public and use SECURITY DEFINER for RLS evaluation.
+CREATE OR REPLACE FUNCTION public.is_store_member(p_store_id UUID)
 RETURNS BOOLEAN AS $$
 BEGIN
     RETURN EXISTS (
@@ -229,7 +231,7 @@ BEGIN
           AND is_active = TRUE
     );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Enable RLS on core tables
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
@@ -238,13 +240,13 @@ ALTER TABLE stock_movements ENABLE ROW LEVEL SECURITY;
 ALTER TABLE command_drafts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Store members products access" ON products
-    FOR ALL USING (auth.is_store_member(store_id));
+    FOR ALL USING (public.is_store_member(store_id));
 
 CREATE POLICY "Store members orders access" ON orders
-    FOR ALL USING (auth.is_store_member(store_id));
+    FOR ALL USING (public.is_store_member(store_id));
 
 CREATE POLICY "Store members stock movements access" ON stock_movements
-    FOR ALL USING (auth.is_store_member(store_id));
+    FOR ALL USING (public.is_store_member(store_id));
 
 CREATE POLICY "Store members command drafts access" ON command_drafts
-    FOR ALL USING (auth.is_store_member(store_id));
+    FOR ALL USING (public.is_store_member(store_id));
