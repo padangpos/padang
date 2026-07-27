@@ -77,6 +77,8 @@ export async function createCustomer(input: { displayName: string; phoneNumber?:
   await ensureTenant();
   const { data, error } = await admin.from('customers').insert({ store_id: storeId, display_name: input.displayName.trim(), phone_number: input.phoneNumber || null, points: 10 }).select('id,display_name,phone_number,points,created_at').single();
   if (error || !data) throw error || new Error('Customer insert returned no data');
+  const { error: welcomeLedgerError } = await admin.from('loyalty_transactions').insert({ store_id: storeId, customer_id: data.id, points_delta: 10, reason: 'welcome_bonus' });
+  if (welcomeLedgerError) throw welcomeLedgerError;
   await recordServerAudit('create_customer', 'customer', String(data.id), { displayName: input.displayName });
   return { ...data, points: Number(data.points) } as CustomerRecord;
 }
@@ -87,7 +89,9 @@ export async function adjustCustomerPoints(id: string, amount: number) {
   if (readError || !current) throw readError || new Error('Customer not found');
   const next = Math.max(0, Number(current.points) + amount);
   if (!amount) throw new Error('Points adjustment must not be zero');
-  const { error: ledgerError } = await admin.from('loyalty_transactions').insert({ store_id: storeId, customer_id: id, points_delta: amount, reason: 'manual_adjustment' });
+  const actualDelta = next - Number(current.points);
+  if (!actualDelta) throw new Error('Points adjustment would not change balance');
+  const { error: ledgerError } = await admin.from('loyalty_transactions').insert({ store_id: storeId, customer_id: id, points_delta: actualDelta, reason: 'manual_adjustment' });
   if (ledgerError) throw ledgerError;
   const { data, error } = await admin.from('customers').update({ points: next }).eq('id', id).eq('store_id', storeId).select('id,display_name,phone_number,points,created_at').single();
   if (error || !data) throw error || new Error('Customer update returned no data');
