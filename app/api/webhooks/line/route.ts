@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ParsedDraftResult, parseTextIntent } from '@/lib/ai/intent-parser';
-import { createCommandDraft } from '@/lib/ai/draft-store';
+import { createServerCommandDraft } from '@/lib/ai/server-draft-store';
 import { DraftInputType } from '@/lib/types/database';
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -83,9 +83,8 @@ export async function POST(req: Request) {
       if (event.type !== 'message' || !event.message) continue;
 
       const parsedMessage = parseLineMessage(event.message);
-      const draft = createCommandDraft({
-        storeId: 'store-1',
-        branchId: 'branch-main',
+      const draft = await createServerCommandDraft({
+        branchId: '00000000-0000-0000-0000-000000000002',
         rawInput: parsedMessage.rawInput,
         inputType: parsedMessage.inputType,
         parsed: parsedMessage.parsed,
