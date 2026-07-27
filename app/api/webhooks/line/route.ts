@@ -4,8 +4,7 @@ import { ParsedDraftResult, parseTextIntent } from '@/lib/ai/intent-parser';
 import { createServerCommandDraft } from '@/lib/ai/server-draft-store';
 import { DraftInputType } from '@/lib/types/database';
 
-const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
-const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
+const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://padaeng-pos.vercel.app';
 const lineChannelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 const lineChannelSecret = process.env.LINE_CHANNEL_SECRET;
 
@@ -89,9 +88,9 @@ export async function POST(req: Request) {
         inputType: parsedMessage.inputType,
         parsed: parsedMessage.parsed,
       });
-      const liffUrl = liffId
-        ? `https://liff.line.me/${liffId}/liff/drafts/${draft.id}`
-        : `${appUrl}/liff/drafts/${draft.id}`;
+      // LINE's in-app redirect can strip LIFF path state on some clients.
+      // Use the HTTPS app route directly so the Draft ID is never lost.
+      const liffUrl = `${appUrl}/liff/drafts/${draft.id}`;
       const replyMessage: LineReplyMessage = {
         text: `${parsedMessage.parsed.userMessage}\n\nOpen Draft to review and confirm:\n${liffUrl}`,
         quickReply: {
