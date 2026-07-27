@@ -14,8 +14,11 @@ export async function GET(request: Request) {
   if (searchParams.get('to')) query = query.lt('created_at', searchParams.get('to')!);
   const { data, error } = await query;
   if (error) { console.error('Report query failed:', error); return NextResponse.json({ error: 'โหลดรายงานไม่สำเร็จ' }, { status: 500 }); }
-  const { data: payments } = await admin.from('payments').select('amount,payment_method,created_at').eq('store_id', storeId);
-  const { data: expenses } = await admin.from('expenses').select('amount,created_at').eq('store_id', storeId);
+  let paymentsQuery = admin.from('payments').select('amount,payment_method,created_at').eq('store_id', storeId);
+  let expensesQuery = admin.from('expenses').select('amount,created_at').eq('store_id', storeId);
+  if (searchParams.get('from')) { paymentsQuery = paymentsQuery.gte('created_at', searchParams.get('from')!); expensesQuery = expensesQuery.gte('created_at', searchParams.get('from')!); }
+  if (searchParams.get('to')) { paymentsQuery = paymentsQuery.lt('created_at', searchParams.get('to')!); expensesQuery = expensesQuery.lt('created_at', searchParams.get('to')!); }
+  const [{ data: payments }, { data: expenses }] = await Promise.all([paymentsQuery, expensesQuery]);
   const top = new Map<string, { qty: number; sales: number; cost: number }>();
   let sales = 0;
   let cost = 0;

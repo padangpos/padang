@@ -6,11 +6,7 @@ import { ArrowLeft, UserPlus, Award, Search, X, Plus, Star } from 'lucide-react'
 import { recordAuditLog } from '@/lib/audit/logger';
 
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState([
-    { id: 'c-1', name: 'คุณสมชาย ใจดี', phone: '081-999-8888', points: 145, tier: 'Gold' },
-    { id: 'c-2', name: 'คุณนภา สุขสันต์', phone: '089-777-6666', points: 60, tier: 'Standard' },
-    { id: 'c-3', name: 'คุณอนันต์ มั่นคง', phone: '082-555-4444', points: 20, tier: 'Standard' },
-  ]);
+  const [customers, setCustomers] = useState<Array<{ id: string; name: string; phone: string; points: number; tier: string }>>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     fetch('/api/customers').then((response) => response.json()).then((body) => {

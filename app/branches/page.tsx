@@ -1,14 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Store, Plus, Check, MapPin } from 'lucide-react';
 
 export default function BranchesPage() {
-  const [branches, setBranches] = useState([
-    { id: 'b-1', name: 'สาขาหลัก (สุขุมวิท)', code: 'MAIN', address: 'กรุงเทพฯ', isMain: true },
-    { id: 'b-2', name: 'สาขา 2 (อารีย์)', code: 'ARI', address: 'กรุงเทพฯ', isMain: false },
-  ]);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string; code: string; address?: string; is_main: boolean }>>([]);
+  useEffect(() => { fetch('/api/branches').then((r) => r.json()).then((body) => setBranches(body.branches || [])).catch(() => undefined); }, []);
 
   const [showAddModal, setShowAddModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -16,17 +14,7 @@ export default function BranchesPage() {
 
   const handleAddBranch = () => {
     if (!nameInput || !codeInput) return;
-    const newB = {
-      id: `b-${Date.now()}`,
-      name: nameInput,
-      code: codeInput.toUpperCase(),
-      address: 'กรุงเทพฯ',
-      isMain: false,
-    };
-    setBranches([...branches, newB]);
-    setNameInput('');
-    setCodeInput('');
-    setShowAddModal(false);
+    fetch('/api/branches', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nameInput, code: codeInput }) }).then(async (r) => { if (!r.ok) throw new Error(); const body = await r.json(); setBranches((current) => [...current, body.branch]); setNameInput(''); setCodeInput(''); setShowAddModal(false); }).catch(() => alert('เพิ่มสาขาไม่สำเร็จ'));
   };
 
   return (
@@ -63,7 +51,7 @@ export default function BranchesPage() {
               <div>
                 <div className="flex items-center space-x-2">
                   <h4 className="font-bold text-sm text-padaeng-text">{b.name}</h4>
-                  {b.isMain && (
+                  {b.is_main && (
                     <span className="bg-padaeng-red text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
                       สาขาหลัก
                     </span>

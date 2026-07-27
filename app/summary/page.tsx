@@ -13,6 +13,8 @@ export default function SummaryPage() {
   const [countedCashInput, setCountedCashInput] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLineModal, setShowLineModal] = useState(false);
+  const [lineSending, setLineSending] = useState(false);
+  const [lineSent, setLineSent] = useState(false);
 
   const [totalSales, setTotalSales] = useState(0);
   const [cashSales, setCashSales] = useState(0);
@@ -35,6 +37,13 @@ export default function SummaryPage() {
   const expectedCashInDrawer = openingCash + cashSales;
   const countedCash = parseFloat(countedCashInput) || 0;
   const discrepancy = countedCash - expectedCashInDrawer;
+  const sendDailySummary = async () => {
+    setLineSending(true);
+    const response = await fetch('/api/line/daily-summary', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ text: `[ป้าแดง POS] สรุปยอดขาย\nยอดขายรวม ฿${totalSales.toLocaleString()}\nเงินสด ฿${cashSales.toLocaleString()}\nQR ฿${promptpaySales.toLocaleString()}\nบัตร ฿${cardSales.toLocaleString()}\nรายจ่าย ฿${totalExpenses.toLocaleString()}\nสุทธิ ฿${netTotal.toLocaleString()}` }) });
+    setLineSending(false);
+    if (!response.ok) { alert('ยังส่งเข้า LINE ไม่ได้ กรุณาตั้งค่า LINE OA ก่อน'); return; }
+    setLineSent(true);
+  };
 
   const handleCloseShift = () => {
     if (!shiftId) return;
@@ -237,21 +246,22 @@ export default function SummaryPage() {
               <p className="font-bold">📢 [ป้าแดง POS] สรุปยอดขายประจำวัน</p>
               <p>ร้านกาแฟป้าแดง (สาขาหลัก)</p>
               <p>------------------------</p>
-              <p>ยอดขายรวม: ฿8,450</p>
-              <p>• เงินสด: ฿4,250</p>
-              <p>• สแกน QR: ฿3,200</p>
-              <p>• บัตรเครดิต: ฿1,000</p>
-              <p>รายจ่ายรวม: ฿850</p>
-              <p className="font-bold text-padaeng-red">ยอดขายสุทธิ: ฿7,600</p>
+              <p>ยอดขายรวม: ฿{totalSales.toLocaleString()}</p>
+              <p>• เงินสด: ฿{cashSales.toLocaleString()}</p>
+              <p>• สแกน QR: ฿{promptpaySales.toLocaleString()}</p>
+              <p>• บัตรเครดิต: ฿{cardSales.toLocaleString()}</p>
+              <p>รายจ่ายรวม: ฿{totalExpenses.toLocaleString()}</p>
+              <p className="font-bold text-padaeng-red">ยอดขายสุทธิ: ฿{netTotal.toLocaleString()}</p>
               <p>------------------------</p>
               <p className="text-[10px] text-emerald-700">ส่งเมื่อ 26/07/2026 22:30 น.</p>
             </div>
 
             <button
-              onClick={() => setShowLineModal(false)}
+              onClick={sendDailySummary}
+              disabled={lineSending || lineSent}
               className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl text-sm min-h-btn shadow-md active:scale-95 transition-all"
             >
-              ส่งสรุปเข้า LINE เจ้าของร้านเรียบร้อย
+              {lineSent ? 'ส่งสรุปเข้า LINE เจ้าของร้านเรียบร้อย' : lineSending ? 'กำลังส่ง...' : 'ยืนยันส่งสรุปเข้า LINE'}
             </button>
           </div>
         </div>

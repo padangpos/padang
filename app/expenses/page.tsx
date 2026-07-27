@@ -6,11 +6,7 @@ import { ArrowLeft, Plus, Camera, Sparkles, X, Check, FileText } from 'lucide-re
 import { recordAuditLog } from '@/lib/audit/logger';
 
 export default function ExpensesPage() {
-  const [expenses, setExpenses] = useState([
-    { id: 'exp-1', title: 'ค่าน้ำแข็งประจำวัน', amount: 350, category: 'วัตถุดิบ & สินค้า', date: 'วันนี้ 14:20 น.' },
-    { id: 'exp-2', title: 'ค่าไฟฟ้าประจำเดือน', amount: 4200, category: 'ค่าน้ำ/ค่าไฟ/สาธารณูปโภค', date: 'เมื่อวาน' },
-    { id: 'exp-3', title: 'ค่าแก้วและถุงพลาสติก', amount: 850, category: 'วัสดุสิ้นเปลือง', date: '24 ก.ค. 2026' },
-  ]);
+  const [expenses, setExpenses] = useState<Array<{ id: string; title: string; amount: number; category: string; date: string }>>([]);
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     fetch('/api/expenses').then((response) => response.json()).then((body) => {
