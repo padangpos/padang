@@ -23,7 +23,7 @@ SUPABASE_SERVICE_ROLE_KEY="your-supabase-service-role-key"
 LINE_CHANNEL_ID="your-line-channel-id"
 LINE_CHANNEL_SECRET="your-line-channel-secret"
 LINE_CHANNEL_ACCESS_TOKEN="your-line-channel-access-token"
-NEXT_PUBLIC_LIFF_ID="your-liff-id"
+NEXT_PUBLIC_LIFF_ID="2010866348-GESmtoGd"
 
 # ==========================================
 # AI Provider Adapter Configuration

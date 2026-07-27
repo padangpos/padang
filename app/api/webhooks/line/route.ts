@@ -5,6 +5,7 @@ import { ParsedDraftResult } from '@/lib/ai/intent-parser';
 import { DraftInputType } from '@/lib/types/database';
 
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 
 function parseLineMessage(message: Record<string, unknown>) {
   const messageType = message.type;
@@ -45,7 +46,9 @@ export async function POST(req: Request) {
           inputType: parsedMessage.inputType,
           parsed: parsedMessage.parsed,
         });
-        const liffUrl = `${appUrl}/liff/drafts/${draft.id}`;
+        const liffUrl = liffId
+          ? `https://liff.line.me/${liffId}?draftId=${encodeURIComponent(draft.id)}`
+          : `${appUrl}/liff/drafts/${draft.id}`;
 
         console.log('🤖 [LINE AI Webhook Parsed]:', {
           draftId: draft.id,
