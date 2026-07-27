@@ -24,6 +24,7 @@ LINE_CHANNEL_ID="your-line-channel-id"
 LINE_CHANNEL_SECRET="your-line-channel-secret"
 LINE_CHANNEL_ACCESS_TOKEN="your-line-channel-access-token"
 NEXT_PUBLIC_LIFF_ID="2010866348-GESmtoGd"
+LINE_CHANNEL_SECRET="your-line-channel-secret"
 
 # ==========================================
 # AI Provider Adapter Configuration

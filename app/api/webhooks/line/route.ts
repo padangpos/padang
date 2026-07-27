@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { createHmac, timingSafeEqual } from 'node:crypto';
 import { ParsedDraftResult, parseTextIntent } from '@/lib/ai/intent-parser';
 import { createCommandDraft } from '@/lib/ai/draft-store';
 import { DraftInputType } from '@/lib/types/database';
@@ -6,6 +7,7 @@ import { DraftInputType } from '@/lib/types/database';
 const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
 const liffId = process.env.NEXT_PUBLIC_LIFF_ID;
 const lineChannelAccessToken = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+const lineChannelSecret = process.env.LINE_CHANNEL_SECRET;
 
 type LineReplyMessage = {
   text: string;
@@ -57,7 +59,24 @@ function parseLineMessage(message: Record<string, unknown>) {
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
+    if (!lineChannelSecret) {
+      console.error('LINE_CHANNEL_SECRET is not configured');
+      return NextResponse.json({ error: 'Webhook is not configured' }, { status: 500 });
+    }
+
+    const rawBody = await req.text();
+    const signature = req.headers.get('x-line-signature');
+    const expectedSignature = createHmac('sha256', lineChannelSecret).update(rawBody).digest('base64');
+    const signatureMatches =
+      typeof signature === 'string' &&
+      signature.length === expectedSignature.length &&
+      timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature));
+
+    if (!signatureMatches) {
+      return NextResponse.json({ error: 'Invalid LINE signature' }, { status: 401 });
+    }
+
+    const body = JSON.parse(rawBody);
     const events = body.events || [];
 
     for (const event of events) {
