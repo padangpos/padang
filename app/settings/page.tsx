@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Store, QrCode, Printer, Volume2, Save, Check } from 'lucide-react';
 import { usePosStore } from '@/lib/store/usePosStore';
@@ -9,12 +9,16 @@ export default function SettingsPage() {
   const { storeName, branchName } = usePosStore();
 
   const [nameInput, setNameInput] = useState(storeName);
-  const [promptpayInput, setPromptpayInput] = useState('081-234-5678');
-  const [receiptFooterInput, setReceiptFooterInput] = useState('ขอบคุณที่อุดหนุนป้าแดงนะคะ 🙏');
+  const [promptpayInput, setPromptpayInput] = useState('');
+  const [receiptFooterInput, setReceiptFooterInput] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
 
-  const handleSaveSettings = () => {
+  useEffect(() => { fetch('/api/settings').then((r) => r.json()).then((body) => { const settings = body.settings; if (settings) { setPromptpayInput(settings.promptpay_id || ''); setReceiptFooterInput(settings.receipt_footer || ''); setSoundEnabled(settings.sound_enabled !== false); } }).catch(() => undefined); }, []);
+
+  const handleSaveSettings = async () => {
+    const response = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: nameInput, promptpayId: promptpayInput, receiptFooter: receiptFooterInput, soundEnabled }) });
+    if (!response.ok) { alert('บันทึกการตั้งค่าไม่สำเร็จ'); return; }
     setIsSaved(true);
     setTimeout(() => setIsSaved(false), 2500);
   };

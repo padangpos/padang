@@ -27,21 +27,12 @@ export default function OnboardingPage() {
     { id: 'food_truck', title: 'Food Stall / Food Truck', desc: 'ร้านตลาดนัด, ซุ้มเครื่องดื่ม' },
   ];
 
-  const handleCompleteSetup = () => {
-    // Add first product to store
+  const handleCompleteSetup = async () => {
     if (productName && productPrice) {
-      addProduct({
-        id: `prod-${Date.now()}`,
-        store_id: 'store-1',
-        category_id: 'cat-1',
-        name: productName,
-        base_price: parseFloat(productPrice) || 0,
-        cost_price: Math.round((parseFloat(productPrice) || 0) * 0.35),
-        is_active: true,
-        track_inventory: true,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      });
+      const response = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: productName, base_price: parseFloat(productPrice) || 0, cost_price: Math.round((parseFloat(productPrice) || 0) * 0.35) }) });
+      if (!response.ok) { alert('บันทึกสินค้าแรกไม่สำเร็จ'); return; }
+      const body = await response.json();
+      addProduct(body.product);
     }
     setStep(3);
   };

@@ -1,16 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, UserPlus, ShieldCheck, Users, X, Check } from 'lucide-react';
 import { RoleName } from '@/lib/types/database';
 
 export default function StaffPage() {
-  const [staffMembers, setStaffMembers] = useState([
-    { id: 's-1', name: 'คุณป้าแดง', role: 'owner' as RoleName, phone: '081-234-5678', status: 'active' },
-    { id: 's-2', name: 'คุณสมชาย (ผู้จัดการ)', role: 'manager' as RoleName, phone: '089-876-5432', status: 'active' },
-    { id: 's-3', name: 'น้องนก (พนักงานขาย)', role: 'cashier' as RoleName, phone: '082-111-2222', status: 'active' },
-  ]);
+  const [staffMembers, setStaffMembers] = useState<Array<{ id: string; name: string; role: RoleName; phone: string; status: string }>>([]);
+  useEffect(() => { fetch('/api/staff').then((r) => r.json()).then((body) => setStaffMembers((body.staff || []).map((staff: { id: string; display_name: string; role_name: RoleName; phone_number: string; status: string }) => ({ id: staff.id, name: staff.display_name, role: staff.role_name, phone: staff.phone_number, status: staff.status })))).catch(() => undefined); }, []);
 
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [nameInput, setNameInput] = useState('');
@@ -24,16 +21,12 @@ export default function StaffPage() {
     staff: { title: 'พนักงานทั่วไป (Staff)', badgeBg: 'bg-gray-600 text-white' },
   };
 
-  const handleInviteStaff = () => {
+  const handleInviteStaff = async () => {
     if (!nameInput || !phoneInput) return;
-    const newStaff = {
-      id: `s-${Date.now()}`,
-      name: nameInput,
-      role: roleInput,
-      phone: phoneInput,
-      status: 'active',
-    };
-    setStaffMembers([...staffMembers, newStaff]);
+    const response = await fetch('/api/staff', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: nameInput, phoneNumber: phoneInput, roleName: roleInput }) });
+    if (!response.ok) { alert('เชิญพนักงานไม่สำเร็จ'); return; }
+    const body = await response.json();
+    setStaffMembers((current) => [{ id: body.staff.id, name: body.staff.display_name, role: body.staff.role_name, phone: body.staff.phone_number, status: body.staff.status }, ...current]);
     setNameInput('');
     setPhoneInput('');
     setShowInviteModal(false);

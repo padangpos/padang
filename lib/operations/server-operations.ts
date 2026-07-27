@@ -202,3 +202,37 @@ export async function recordCatalogSync(input: { productId: string; payload: Rec
   if (error || !data) throw error || new Error('Catalog sync event insert failed');
   return data;
 }
+
+export async function listStaffInvites() {
+  if (!admin) return [];
+  const { data, error } = await admin.from('staff_invites').select('id,display_name,phone_number,role_name,status,created_at').eq('store_id', storeId).order('created_at', { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createStaffInvite(input: { displayName: string; phoneNumber: string; roleName: 'owner' | 'manager' | 'cashier' | 'staff' }) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  await ensureTenant();
+  const { data, error } = await admin.from('staff_invites').insert({ store_id: storeId, display_name: input.displayName.trim(), phone_number: input.phoneNumber.trim(), role_name: input.roleName, status: 'pending' }).select('id,display_name,phone_number,role_name,status,created_at').single();
+  if (error || !data) throw error || new Error('Staff invite insert returned no data');
+  await recordServerAudit('create_staff_invite', 'staff_invite', String(data.id), { displayName: input.displayName, roleName: input.roleName });
+  return data;
+}
+
+export async function getStoreSettings() {
+  if (!admin) return null;
+  await ensureTenant();
+  const { data, error } = await admin.from('store_settings').select('promptpay_id,receipt_footer,sound_enabled').eq('store_id', storeId).maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function saveStoreSettings(input: { name?: string; promptpayId?: string; receiptFooter?: string; soundEnabled?: boolean }) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  await ensureTenant();
+  if (input.name) { const { error } = await admin.from('stores').update({ name: input.name.trim(), updated_at: new Date().toISOString() }).eq('id', storeId); if (error) throw error; }
+  const { data, error } = await admin.from('store_settings').upsert({ store_id: storeId, promptpay_id: input.promptpayId || null, receipt_footer: input.receiptFooter || null, sound_enabled: input.soundEnabled ?? true, updated_at: new Date().toISOString() }).select('promptpay_id,receipt_footer,sound_enabled').single();
+  if (error || !data) throw error || new Error('Settings save returned no data');
+  await recordServerAudit('update_store_settings', 'store', storeId, { name: input.name, promptpayId: input.promptpayId, soundEnabled: input.soundEnabled });
+  return data;
+}

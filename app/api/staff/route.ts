@@ -1,0 +1,5 @@
+import { NextResponse } from 'next/server';
+import { createStaffInvite, listStaffInvites } from '@/lib/operations/server-operations';
+export const dynamic = 'force-dynamic';
+export async function GET() { try { return NextResponse.json({ staff: await listStaffInvites() }); } catch { return NextResponse.json({ error: 'โหลดพนักงานไม่สำเร็จ' }, { status: 500 }); } }
+export async function POST(request: Request) { try { const body = await request.json(); const roleName = ['owner','manager','cashier','staff'].includes(String(body.roleName)) ? String(body.roleName) as 'owner'|'manager'|'cashier'|'staff' : 'cashier'; const displayName = String(body.displayName || '').trim(); const phoneNumber = String(body.phoneNumber || '').trim(); if (!displayName || !phoneNumber) return NextResponse.json({ error: 'กรุณาระบุชื่อและเบอร์โทรศัพท์' }, { status: 400 }); return NextResponse.json({ staff: await createStaffInvite({ displayName, phoneNumber, roleName }) }, { status: 201 }); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'เชิญพนักงานไม่สำเร็จ' }, { status: 500 }); } }
