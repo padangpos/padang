@@ -25,24 +25,30 @@ export async function POST(request: Request) {
     if (!orderNumber || !items.length) return NextResponse.json({ error: 'ข้อมูลรายการขายไม่ครบ' }, { status: 400 });
 
     const admin = createClient(supabaseUrl, serviceRoleKey);
-    const idempotencyKey = `pos:${orderNumber}`;
-    const { data: existing } = await admin.from('payments').select('id,order_id').eq('idempotency_key', idempotencyKey).maybeSingle();
-    if (existing) return NextResponse.json({ orderId: existing.order_id, paymentId: existing.id, alreadyApplied: true });
-
-    const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
-    const grandTotal = Number(body.grandTotal);
-    const total = Number.isFinite(grandTotal) && grandTotal >= 0 ? grandTotal : subtotal;
-    const { data: order, error: orderError } = await admin.from('orders').insert({ store_id: storeId, branch_id: branchId, order_number: orderNumber, status: 'completed', subtotal, discount_amount: 0, tax_amount: Math.max(0, total - subtotal), grand_total: total }).select('id').single();
-    if (orderError || !order) throw orderError || new Error('order insert failed');
-
-    const { error: itemError } = await admin.from('order_items').insert(items.map((item) => ({ order_id: order.id, product_id: item.productId, product_name: item.name, unit_price: item.unitPrice, unit_cost: item.unitCost || 0, quantity: item.quantity, total_price: item.quantity * item.unitPrice })));
-    if (itemError) { await admin.from('orders').delete().eq('id', order.id); throw itemError; }
-
+    const productIds = [...new Set(items.map((item) => item.productId))];
+    const { data: catalog, error: catalogError } = await admin.from('products').select('id,name,base_price,cost_price,is_active').eq('store_id', storeId).in('id', productIds).eq('is_active', true);
+    if (catalogError) throw catalogError;
+    const catalogById = new Map((catalog || []).map((product) => [String(product.id), product]));
+    if (catalogById.size !== productIds.length) return NextResponse.json({ error: 'มีสินค้าที่ไม่พร้อมขายหรือไม่อยู่ในร้านนี้' }, { status: 400 });
+    const trustedItems = items.map((item) => { const product = catalogById.get(item.productId)!; return { ...item, name: String(product.name), unitPrice: Number(product.base_price), unitCost: Number(product.cost_price || 0) }; });
+    const subtotal = trustedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+    const total = Math.round((subtotal * 1.07) * 100) / 100;
     const tendered = Number(body.tendered);
     const change = Number(body.change);
-    const { data: payment, error: paymentError } = await admin.from('payments').insert({ store_id: storeId, order_id: order.id, payment_method: paymentMethod, amount: total, tendered_amount: Number.isFinite(tendered) ? tendered : total, change_amount: Number.isFinite(change) ? change : 0, status: 'completed', idempotency_key: idempotencyKey }).select('id').single();
-    if (paymentError || !payment) { await admin.from('orders').delete().eq('id', order.id); throw paymentError || new Error('payment insert failed'); }
-    return NextResponse.json({ orderId: order.id, paymentId: payment.id, alreadyApplied: false }, { status: 201 });
+    if (paymentMethod === 'cash' && (!Number.isFinite(tendered) || tendered < total)) return NextResponse.json({ error: 'เงินสดที่รับไม่พอชำระยอดจริง' }, { status: 400 });
+    const { data, error } = await admin.rpc('complete_pos_sale', {
+      p_store_id: storeId,
+      p_branch_id: branchId,
+      p_order_number: orderNumber,
+      p_payment_method: paymentMethod,
+      p_tendered: Number.isFinite(tendered) ? tendered : total,
+      p_change: Number.isFinite(change) ? change : 0,
+      p_grand_total: total,
+      p_items: trustedItems,
+      p_customer_id: typeof body.customerId === 'string' ? body.customerId : null,
+    });
+    if (error || !data) throw error || new Error('sale RPC returned no data');
+    return NextResponse.json(data, { status: data.alreadyApplied ? 200 : 201 });
   } catch (error) {
     console.error('POS sale persistence failed:', error);
     return NextResponse.json({ error: 'บันทึกการขายไม่สำเร็จ กรุณาลองใหม่' }, { status: 500 });

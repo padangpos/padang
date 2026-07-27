@@ -1,0 +1,5 @@
+import { NextResponse } from 'next/server';
+import { listCatalogSyncEvents, recordCatalogSync } from '@/lib/operations/server-operations';
+export const dynamic = 'force-dynamic';
+export async function GET() { try { return NextResponse.json({ events: await listCatalogSyncEvents() }); } catch { return NextResponse.json({ error: 'โหลด catalog sync ไม่สำเร็จ' }, { status: 500 }); } }
+export async function POST(request: Request) { try { const body = await request.json(); const productId = String(body.productId || ''); if (!productId || !body.payload || typeof body.payload !== 'object') return NextResponse.json({ error: 'ข้อมูล catalog sync ไม่ถูกต้อง' }, { status: 400 }); return NextResponse.json({ event: await recordCatalogSync({ productId, payload: body.payload, eventType: body.eventType ? String(body.eventType) : undefined }) }, { status: 201 }); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'บันทึก catalog sync ไม่สำเร็จ' }, { status: 500 }); } }

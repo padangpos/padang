@@ -1,39 +1,12 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, History, Search } from 'lucide-react';
 
 export default function AuditLogsPage() {
-  const [logs] = useState([
-    {
-      id: 'audit-101',
-      action: 'complete_sale',
-      actor: 'พนักงานคิดเงิน (น้องนก)',
-      entity: 'Order #REC-98214',
-      details: 'ชำระเงินสำเร็จ ฿450 (เงินสด)',
-      reason: 'การขาย POS ปกติ',
-      time: 'วันนี้ 15:42 น.',
-    },
-    {
-      id: 'audit-102',
-      action: 'adjust_stock',
-      actor: 'ผู้จัดการ (คุณสมชาย)',
-      entity: 'Product: ครัวซองต์เนยสด',
-      details: 'ตัดของเสีย -2 ชิ้น',
-      reason: 'ขนมหมดอายุ',
-      time: 'วันนี้ 14:15 น.',
-    },
-    {
-      id: 'audit-103',
-      action: 'confirm_ai_draft',
-      actor: 'เจ้าของร้าน (ป้าแดง)',
-      entity: 'Draft #draft-101',
-      details: 'ยืนยันบิลเสียง "ขายน้ำ 3 ขวด"',
-      reason: 'ยืนยันผ่าน LIFF',
-      time: 'วันนี้ 11:05 น.',
-    },
-  ]);
+  const [logs, setLogs] = useState<Array<{ id: string; action: string; actor: string; entity: string; details: string; reason?: string; time: string }>>([]);
+  useEffect(() => { fetch('/api/audit-logs').then((r) => r.json()).then((body) => setLogs((body.logs || []).map((log: { id: string; action: string; target_entity: string; entity_id?: string; changes?: Record<string, unknown>; reason?: string; created_at: string }) => ({ id: log.id, action: log.action, actor: 'ระบบ/ผู้ใช้งานปัจจุบัน', entity: `${log.target_entity}${log.entity_id ? ` #${log.entity_id}` : ''}`, details: JSON.stringify(log.changes || {}), reason: log.reason, time: new Date(log.created_at).toLocaleString('th-TH') })))).catch(() => undefined); }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
 

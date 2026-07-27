@@ -9,11 +9,18 @@ const admin = url && key ? createClient(url, key) : null;
 export type ExpenseRecord = { id: string; title: string; amount: number; category: string; receipt_url?: string; created_at: string };
 export type CustomerRecord = { id: string; display_name: string; phone_number?: string; points: number; created_at: string };
 export type BranchRecord = { id: string; name: string; code: string; address?: string; is_main: boolean; is_active: boolean };
+export type HeldBillRecord = { id: string; reference_name: string; payload: Record<string, unknown>; total_amount: number; created_at: string };
 
 async function ensureTenant() {
   if (!admin) return;
   await admin.from('stores').upsert({ id: storeId, name: 'PaDaeng POS', business_type: 'retail' });
   await admin.from('branches').upsert({ id: branchId, store_id: storeId, name: 'สาขาหลัก', code: 'MAIN', is_main: true });
+}
+
+export async function recordServerAudit(action: string, targetEntity: string, entityId: string | null, changes: Record<string, unknown>, reason?: string) {
+  if (!admin) return;
+  const { error } = await admin.from('audit_logs').insert({ store_id: storeId, action, target_entity: targetEntity, entity_id: entityId, changes, reason: reason || null });
+  if (error) throw error;
 }
 
 export async function listExpenses(): Promise<ExpenseRecord[]> {
@@ -28,6 +35,7 @@ export async function createExpense(input: { title: string; amount: number; cate
   await ensureTenant();
   const { data, error } = await admin.from('expenses').insert({ store_id: storeId, branch_id: branchId, title: input.title.trim(), amount: input.amount, category: input.category, receipt_url: input.receiptUrl || null }).select('id,title,amount,category,receipt_url,created_at').single();
   if (error || !data) throw error || new Error('Expense insert returned no data');
+  await recordServerAudit('create_expense', 'expense', String(data.id), { title: input.title, amount: input.amount, category: input.category });
   return { ...data, amount: Number(data.amount) } as ExpenseRecord;
 }
 
@@ -45,6 +53,7 @@ export async function openShift(openingCash: number) {
   if (current) return current;
   const { data, error } = await admin.from('shifts').insert({ store_id: storeId, branch_id: branchId, opening_cash: openingCash, status: 'open' }).select('*').single();
   if (error || !data) throw error || new Error('Shift insert returned no data');
+  await recordServerAudit('open_shift', 'shift', String(data.id), { openingCash });
   return data;
 }
 
@@ -52,6 +61,7 @@ export async function closeShift(id: string, closingCash: number) {
   if (!admin) throw new Error('Supabase server configuration is missing');
   const { data, error } = await admin.from('shifts').update({ closing_cash: closingCash, closed_at: new Date().toISOString(), status: 'closed' }).eq('id', id).eq('status', 'open').select('*').single();
   if (error || !data) throw error || new Error('Shift close returned no data');
+  await recordServerAudit('close_shift', 'shift', String(data.id), { closingCash });
   return data;
 }
 
@@ -67,6 +77,7 @@ export async function createCustomer(input: { displayName: string; phoneNumber?:
   await ensureTenant();
   const { data, error } = await admin.from('customers').insert({ store_id: storeId, display_name: input.displayName.trim(), phone_number: input.phoneNumber || null, points: 10 }).select('id,display_name,phone_number,points,created_at').single();
   if (error || !data) throw error || new Error('Customer insert returned no data');
+  await recordServerAudit('create_customer', 'customer', String(data.id), { displayName: input.displayName });
   return { ...data, points: Number(data.points) } as CustomerRecord;
 }
 
@@ -80,6 +91,7 @@ export async function adjustCustomerPoints(id: string, amount: number) {
   if (ledgerError) throw ledgerError;
   const { data, error } = await admin.from('customers').update({ points: next }).eq('id', id).eq('store_id', storeId).select('id,display_name,phone_number,points,created_at').single();
   if (error || !data) throw error || new Error('Customer update returned no data');
+  await recordServerAudit('adjust_points', 'customer', String(data.id), { amount, points: data.points });
   return { ...data, points: Number(data.points) } as CustomerRecord;
 }
 
@@ -96,6 +108,7 @@ export async function createBranch(input: { name: string; code: string; address?
   await ensureTenant();
   const { data, error } = await admin.from('branches').insert({ store_id: storeId, name: input.name.trim(), code: input.code.trim().toUpperCase(), address: input.address || null, is_main: false, is_active: true }).select('id,name,code,address,is_main,is_active').single();
   if (error || !data) throw error || new Error('Branch insert returned no data');
+  await recordServerAudit('create_branch', 'branch', String(data.id), { name: input.name, code: input.code });
   return data as BranchRecord;
 }
 
@@ -120,5 +133,72 @@ export async function createStockTransfer(input: { fromBranchId: string; toBranc
   const destination = await admin.from('inventory_balances').select('id,quantity').eq('store_id', storeId).eq('branch_id', input.toBranchId).eq('product_id', input.productId).is('variant_id', null).maybeSingle();
   if (destination.data) await admin.from('inventory_balances').update({ quantity: Number(destination.data.quantity) + input.quantity, updated_at: new Date().toISOString() }).eq('id', destination.data.id);
   else await admin.from('inventory_balances').insert({ store_id: storeId, branch_id: input.toBranchId, product_id: input.productId, quantity: input.quantity, min_stock_alert: 5 });
+  await recordServerAudit('stock_transfer', 'stock_transfer', String(transfer.data.id), { productId: input.productId, quantity: input.quantity, fromBranchId: input.fromBranchId, toBranchId: input.toBranchId });
   return transfer.data;
+}
+
+export async function listHeldBills(): Promise<HeldBillRecord[]> {
+  if (!admin) return [];
+  const { data, error } = await admin.from('held_bills').select('id,reference_name,payload,total_amount,created_at').eq('store_id', storeId).eq('branch_id', branchId).eq('status', 'held').order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((row) => ({ ...row, total_amount: Number(row.total_amount) })) as HeldBillRecord[];
+}
+
+export async function createHeldBill(input: { referenceName: string; payload: Record<string, unknown>; totalAmount: number }) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  await ensureTenant();
+  const { data, error } = await admin.from('held_bills').insert({ store_id: storeId, branch_id: branchId, reference_name: input.referenceName.trim() || 'บิลพัก', payload: input.payload, total_amount: input.totalAmount, status: 'held' }).select('id,reference_name,payload,total_amount,created_at').single();
+  if (error || !data) throw error || new Error('Held bill insert returned no data');
+  return { ...data, total_amount: Number(data.total_amount) } as HeldBillRecord;
+}
+
+export async function deleteHeldBill(id: string) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  const { error } = await admin.from('held_bills').update({ status: 'deleted' }).eq('id', id).eq('store_id', storeId).eq('branch_id', branchId).eq('status', 'held');
+  if (error) throw error;
+}
+
+export async function recallHeldBill(id: string) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  const { data, error } = await admin.from('held_bills').update({ status: 'recalled' }).eq('id', id).eq('store_id', storeId).eq('branch_id', branchId).eq('status', 'held').select('id').maybeSingle();
+  if (error) throw error;
+  return Boolean(data);
+}
+
+export async function listAuditLogs() {
+  if (!admin) return [];
+  const { data, error } = await admin.from('audit_logs').select('id,action,target_entity,entity_id,changes,reason,created_at').eq('store_id', storeId).order('created_at', { ascending: false }).limit(100);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function listCoupons() {
+  if (!admin) return [];
+  const { data, error } = await admin.from('coupons').select('id,code,name,discount_type,discount_value,min_order_amount,is_active,starts_at,ends_at').eq('store_id', storeId).order('created_at', { ascending: false });
+  if (error) throw error;
+  return (data || []).map((coupon) => ({ ...coupon, discount_value: Number(coupon.discount_value), min_order_amount: Number(coupon.min_order_amount) }));
+}
+
+export async function createCoupon(input: { code: string; name: string; discountType: 'percent' | 'fixed'; discountValue: number; minOrderAmount: number }) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  await ensureTenant();
+  if (input.discountType === 'percent' && input.discountValue > 100) throw new Error('Percent discount cannot exceed 100');
+  const { data, error } = await admin.from('coupons').insert({ store_id: storeId, code: input.code.trim().toUpperCase(), name: input.name.trim(), discount_type: input.discountType, discount_value: input.discountValue, min_order_amount: input.minOrderAmount, is_active: true }).select('id,code,name,discount_type,discount_value,min_order_amount,is_active,starts_at,ends_at').single();
+  if (error || !data) throw error || new Error('Coupon insert returned no data');
+  await recordServerAudit('create_coupon', 'coupon', String(data.id), { code: input.code, discountType: input.discountType, discountValue: input.discountValue });
+  return { ...data, discount_value: Number(data.discount_value), min_order_amount: Number(data.min_order_amount) };
+}
+
+export async function listCatalogSyncEvents() {
+  if (!admin) return [];
+  const { data, error } = await admin.from('catalog_sync_events').select('id,product_id,source_branch_id,event_type,payload,created_at').eq('store_id', storeId).order('created_at', { ascending: false }).limit(100);
+  if (error) throw error;
+  return data || [];
+}
+
+export async function recordCatalogSync(input: { productId: string; payload: Record<string, unknown>; eventType?: string }) {
+  if (!admin) throw new Error('Supabase server configuration is missing');
+  const { data, error } = await admin.from('catalog_sync_events').insert({ store_id: storeId, product_id: input.productId, source_branch_id: branchId, event_type: input.eventType || 'upsert', payload: input.payload }).select('id,product_id,event_type,payload,created_at').single();
+  if (error || !data) throw error || new Error('Catalog sync event insert failed');
+  return data;
 }

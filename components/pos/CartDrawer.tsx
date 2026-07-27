@@ -23,7 +23,10 @@ export default function CartDrawer({ onProceedToPayment }: CartDrawerProps) {
   const [holdNote, setHoldNote] = useState('');
   const [showHoldModal, setShowHoldModal] = useState(false);
 
-  const handleConfirmHold = () => {
+  const handleConfirmHold = async () => {
+    if (!cart.length) return;
+    const response = await fetch('/api/held-bills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ referenceName: holdNote || `บิลโต๊ะ/ลูกค้า`, items: cart, payload: { items: cart }, totalAmount: getGrandTotal() }) });
+    if (!response.ok) { window.alert('บันทึกบิลพักไม่สำเร็จ'); return; }
     holdCurrentBill(holdNote);
     setHoldNote('');
     setShowHoldModal(false);

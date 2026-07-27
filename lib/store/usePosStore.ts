@@ -44,6 +44,7 @@ interface PosState {
   holdCurrentBill: (referenceName: string) => void;
   recallHeldBill: (billId: string) => void;
   deleteHeldBill: (billId: string) => void;
+  setHeldBills: (bills: HeldBillItem[]) => void;
 
   // Catalog Actions
   setProducts: (products: Product[]) => void;
@@ -122,8 +123,8 @@ const initialProducts: Product[] = [
 export const usePosStore = create<PosState>((set, get) => ({
   storeName: 'ร้านกาแฟป้าแดง (สาขาหลัก)',
   branchName: 'สาขาหลัก',
-  categories: initialCategories,
-  products: initialProducts,
+  categories: [],
+  products: [],
 
   cart: [],
   discountType: 'fixed',
@@ -202,6 +203,8 @@ export const usePosStore = create<PosState>((set, get) => ({
   deleteHeldBill: (billId) => {
     set({ heldBills: get().heldBills.filter(b => b.id !== billId) });
   },
+
+  setHeldBills: (bills) => set({ heldBills: bills }),
 
   setProducts: (products) => set({ products }),
   addProduct: (product) => set({ products: [product, ...get().products] }),

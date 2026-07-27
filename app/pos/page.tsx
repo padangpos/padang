@@ -14,7 +14,7 @@ import { ShoppingBag, ArrowLeft, PauseCircle, Package, Calculator } from 'lucide
 import { recordAuditLog } from '@/lib/audit/logger';
 
 export default function PosPage() {
-  const { storeName, cart, getGrandTotal, clearCart, heldBills, setProducts } = usePosStore();
+  const { storeName, cart, getGrandTotal, clearCart, heldBills, setProducts, setHeldBills } = usePosStore();
 
   useEffect(() => {
     fetch('/api/products')
@@ -27,6 +27,12 @@ export default function PosPage() {
         // ProductGrid already renders a clear empty state when Catalog is unavailable.
       });
   }, [setProducts]);
+
+  useEffect(() => {
+    fetch('/api/held-bills').then((response) => response.json()).then((payload) => {
+      if (Array.isArray(payload.bills)) setHeldBills(payload.bills.map((bill: { id: string; reference_name: string; payload: { items: CartItem[] }; total_amount: number; created_at: string }) => ({ id: bill.id, referenceName: bill.reference_name, items: bill.payload.items, totalAmount: Number(bill.total_amount), createdAt: new Date(bill.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) })));
+    }).catch(() => undefined);
+  }, [setHeldBills]);
 
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);

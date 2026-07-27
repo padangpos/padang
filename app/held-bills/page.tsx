@@ -1,16 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import useRouter from 'next/navigation';
+import { useEffect } from 'react';
 import { usePosStore } from '@/lib/store/usePosStore';
 import { ArrowLeft, RotateCcw, Trash2, Clock, PauseCircle } from 'lucide-react';
 
 export default function HeldBillsPage() {
-  const { heldBills, recallHeldBill, deleteHeldBill } = usePosStore();
+  const { heldBills, recallHeldBill, deleteHeldBill, setHeldBills } = usePosStore();
+  useEffect(() => { fetch('/api/held-bills').then((r) => r.json()).then((body) => { if (Array.isArray(body.bills)) setHeldBills(body.bills.map((bill: { id: string; reference_name: string; payload: { items: typeof heldBills[number]['items'] }; total_amount: number; created_at: string }) => ({ id: bill.id, referenceName: bill.reference_name, items: bill.payload.items, totalAmount: Number(bill.total_amount), createdAt: new Date(bill.created_at).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }) }))); }).catch(() => undefined); }, [setHeldBills]);
 
   const handleRecall = (id: string) => {
-    recallHeldBill(id);
-    window.location.href = '/pos';
+    fetch('/api/held-bills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'recall', id }) }).then((r) => { if (!r.ok) throw new Error(); recallHeldBill(id); window.location.href = '/pos'; }).catch(() => alert('เรียกคืนบิลไม่สำเร็จ'));
   };
 
   return (
@@ -84,7 +84,7 @@ export default function HeldBillsPage() {
                 {/* Actions */}
                 <div className="flex space-x-2 pt-1">
                   <button
-                    onClick={() => deleteHeldBill(bill.id)}
+                    onClick={() => { fetch('/api/held-bills', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'delete', id: bill.id }) }).then((r) => { if (!r.ok) throw new Error(); deleteHeldBill(bill.id); }).catch(() => alert('ลบบิลพักไม่สำเร็จ')); }}
                     className="p-2.5 text-padaeng-muted hover:text-padaeng-red border border-padaeng-border rounded-xl touch-target"
                   >
                     <Trash2 className="w-4 h-4" />

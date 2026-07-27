@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import { NextResponse } from 'next/server';
+import { recordServerAudit } from '@/lib/operations/server-operations';
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -31,6 +32,7 @@ export async function POST(request: Request) {
     if (balance.error) throw balance.error;
     const movement = await admin.from('stock_movements').insert({ store_id: storeId, branch_id: branchId, product_id: productId, movement_type: movementType, quantity_change: quantityChange, note: typeof body.note === 'string' ? body.note : null }).select('id').single();
     if (movement.error) throw movement.error;
+    await recordServerAudit('adjust_stock', 'product', productId, { movementType, quantityChange, quantity: nextQuantity, note: body.note || null });
     return NextResponse.json({ quantity: nextQuantity, movementId: movement.data.id });
   } catch (error) {
     console.error('Stock adjustment failed:', error);

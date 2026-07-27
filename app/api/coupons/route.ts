@@ -1,0 +1,6 @@
+import { NextResponse } from 'next/server';
+import { createCoupon, listCoupons } from '@/lib/operations/server-operations';
+type DiscountType = 'percent' | 'fixed';
+export const dynamic = 'force-dynamic';
+export async function GET() { try { return NextResponse.json({ coupons: await listCoupons() }); } catch { return NextResponse.json({ error: 'โหลดคูปองไม่สำเร็จ' }, { status: 500 }); } }
+export async function POST(request: Request) { try { const body = await request.json(); const discountType: DiscountType = body.discountType === 'percent' ? 'percent' : 'fixed'; const input = { code: String(body.code || '').trim(), name: String(body.name || '').trim(), discountType, discountValue: Number(body.discountValue), minOrderAmount: Number(body.minOrderAmount || 0) }; if (!input.code || !input.name || !Number.isFinite(input.discountValue) || input.discountValue <= 0 || !Number.isFinite(input.minOrderAmount) || input.minOrderAmount < 0) return NextResponse.json({ error: 'ข้อมูลคูปองไม่ถูกต้อง' }, { status: 400 }); return NextResponse.json({ coupon: await createCoupon(input) }, { status: 201 }); } catch (error) { return NextResponse.json({ error: error instanceof Error ? error.message : 'สร้างคูปองไม่สำเร็จ' }, { status: 500 }); } }

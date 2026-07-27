@@ -12,12 +12,7 @@ export default function StockPage() {
   const [filterStatus, setFilterStatus] = useState<'all' | 'low'>('all');
 
   // Stock Balances Local State
-  const [stockMap, setStockMap] = useState<Record<string, number>>({
-    'prod-1': 85,
-    'prod-2': 40,
-    'prod-3': 12,
-    'prod-4': 3, // Low stock!
-  });
+  const [stockMap, setStockMap] = useState<Record<string, number>>({});
 
   // Movement Logs State
   const [movements, setMovements] = useState<
@@ -32,7 +27,7 @@ export default function StockPage() {
       .then(async (response) => {
         if (!response.ok) throw new Error('stock load failed');
         const payload = await response.json();
-        if (payload.balances && Object.keys(payload.balances).length > 0) setStockMap(payload.balances);
+        if (payload.balances) setStockMap(payload.balances);
       })
       .catch(() => undefined);
   }, []);
@@ -44,7 +39,7 @@ export default function StockPage() {
   const [adjustNote, setAdjustNote] = useState('');
 
   const filteredProducts = products.filter((p) => {
-    const qty = stockMap[p.id] ?? 50;
+    const qty = stockMap[p.id] ?? 0;
     const isLow = qty <= 5;
     const matchesFilter = filterStatus === 'low' ? isLow : true;
     const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase());
@@ -55,7 +50,7 @@ export default function StockPage() {
     if (!selectedProd || !adjustQty) return;
     const qtyNum = parseInt(adjustQty, 10) || 0;
     const change = adjustType === 'waste' ? -Math.abs(qtyNum) : Math.abs(qtyNum);
-    const currentQty = stockMap[selectedProd.id] ?? 50;
+    const currentQty = stockMap[selectedProd.id] ?? 0;
     const newQty = Math.max(0, currentQty + change);
 
     const response = await fetch('/api/stock', {
@@ -150,7 +145,7 @@ export default function StockPage() {
         {/* Stock Balance List */}
         <div className="bg-white rounded-padaeng border border-padaeng-border divide-y divide-padaeng-border">
           {filteredProducts.map((p) => {
-            const qty = stockMap[p.id] ?? 50;
+            const qty = stockMap[p.id] ?? 0;
             const isLow = qty <= 5;
             return (
               <div key={p.id} className="p-4 flex items-center justify-between">

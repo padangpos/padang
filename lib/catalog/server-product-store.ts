@@ -70,5 +70,7 @@ export async function createServerProduct(input: NewProduct): Promise<Product> {
     .select('*')
     .single();
   if (error || !data) throw error || new Error('Product insert returned no data');
+  await adminClient.from('catalog_sync_events').insert({ store_id: storeId, product_id: data.id, payload: { name: data.name, base_price: data.base_price, cost_price: data.cost_price }, event_type: 'upsert' });
+  await adminClient.from('audit_logs').insert({ store_id: storeId, action: 'create_product', target_entity: 'product', entity_id: data.id, changes: { name: data.name, base_price: data.base_price, cost_price: data.cost_price }, reason: 'Catalog update' });
   return mapProduct(data as Record<string, unknown>);
 }
