@@ -48,12 +48,29 @@ export default function PosPage() {
     purchasedItems: [],
   });
 
-  const handlePaymentSuccess = (data: {
+  const handlePaymentSuccess = async (data: {
     orderNumber: string;
     paymentMethod: PaymentMethod;
     tendered: number;
     change: number;
   }) => {
+    const response = await fetch('/api/orders', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        orderNumber: data.orderNumber,
+        paymentMethod: data.paymentMethod,
+        tendered: data.tendered,
+        change: data.change,
+        grandTotal: getGrandTotal(),
+        items: cart.map((item) => ({ productId: item.product.id, name: item.product.name, quantity: item.quantity, unitPrice: item.unitPrice, unitCost: item.product.cost_price })),
+      }),
+    });
+    if (!response.ok) {
+      window.alert('บันทึกการขายไม่สำเร็จ กรุณาลองใหม่');
+      return;
+    }
+
     // Record audit log for completed sale
     recordAuditLog(
       'store-1',
