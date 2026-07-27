@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePosStore, CartItem } from '@/lib/store/usePosStore';
 import { PaymentMethod } from '@/lib/types/database';
@@ -14,7 +14,19 @@ import { ShoppingBag, ArrowLeft, PauseCircle, Package, Calculator } from 'lucide
 import { recordAuditLog } from '@/lib/audit/logger';
 
 export default function PosPage() {
-  const { storeName, cart, getGrandTotal, clearCart, heldBills } = usePosStore();
+  const { storeName, cart, getGrandTotal, clearCart, heldBills, setProducts } = usePosStore();
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('Catalog load failed');
+        const payload = await response.json();
+        setProducts(payload.products || []);
+      })
+      .catch(() => {
+        // ProductGrid already renders a clear empty state when Catalog is unavailable.
+      });
+  }, [setProducts]);
 
   const [isPaymentOpen, setIsPaymentOpen] = useState(false);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
