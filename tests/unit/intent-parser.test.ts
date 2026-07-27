@@ -10,6 +10,13 @@ describe('Draft Intent Parser Unit Tests', () => {
     expect(res.requiresConfirmation).toBe(true);
   });
 
+  it('should retain a product name for catalog matching', () => {
+    const res = parseTextIntent('ขาย น้ำ 2 ขวด เงินสด');
+    expect(res.intent).toBe('create_sale');
+    expect(res.extractedData.productName).toBe('น้ำ');
+    expect(res.extractedData.quantity).toBe(2);
+  });
+
   it('should parse expense intent from text', () => {
     const res = parseTextIntent('จดค่าน้ำแข็ง 500 บาท');
     expect(res.intent).toBe('add_expense');

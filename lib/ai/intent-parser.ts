@@ -8,42 +8,39 @@ export interface ParsedDraftResult {
 
 export function parseTextIntent(inputText: string): ParsedDraftResult {
   const text = inputText.trim();
+  const isSale = text.includes('เธเธฒเธข') || /ขาย|คิดเงิน|sell|checkout/i.test(text);
 
-  // Sale pattern match (e.g., "ป้าแดง ขายน้ำ 3 ขวด เงินสด")
-  if (text.includes('ขาย') || text.includes('คิดเงิน')) {
-    const qtyMatch = text.match(/(\d+)\s*(ขวด|แก้ว|ถุง|ชิ้น|รายการ)?/);
-    const qty = qtyMatch ? parseInt(qtyMatch[1], 10) : 1;
-    const isCash = text.includes('เงินสด');
-    const paymentMethod = isCash ? 'cash' : text.includes('โอน') ? 'promptpay' : 'cash';
+  if (isSale || text.includes('เธเธดเธ”เน€เธเธดเธ')) {
+    const qtyMatch = text.match(/(\d+)\s*(?:ขวด|แก้ว|ถุง|ชิ้น|รายการ|หน่วย|เธเธงเธ”)?/u);
+    const quantity = qtyMatch ? Number(qtyMatch[1]) : 1;
+    const isCash = text.includes('เน€เธเธดเธเธชเธ”') || /เงินสด|cash/i.test(text);
+    const paymentMethod = isCash || !/โอน|พร้อมเพย์|promptpay/i.test(text) ? 'cash' : 'promptpay';
+    const productName = text
+      .replace(/ป้าแดง|ขาย|คิดเงิน|sell|checkout|เงินสด|โอน|พร้อมเพย์|cash|promptpay/gi, ' ')
+      .replace(/เธเธฒเธข|เธเธดเธ”เน€เธเธดเธ|เน€เธเธดเธเธชเธ”|เนเธญเธ/g, ' ')
+      .replace(/\d+/g, ' ')
+      .replace(/ขวด|แก้ว|ถุง|ชิ้น|รายการ|หน่วย/gu, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     return {
       intent: 'create_sale',
       confidenceScore: 0.92,
-      extractedData: {
-        rawInput: text,
-        quantity: qty,
-        paymentMethod,
-      },
+      extractedData: { rawInput: text, quantity, paymentMethod, productName },
       requiresConfirmation: true,
-      userMessage: `ป้าเตรียมบันทึกรายการขาย ${qty} รายการ (${isCash ? 'เงินสด' : 'โอนเงิน'}) ให้ตรวจก่อนบันทึกนะ`,
+      userMessage: `เตรียมรายการขาย ${quantity} รายการ กรุณาตรวจสอบก่อนยืนยัน`,
     };
   }
 
-  // Expense pattern match (e.g., "จดค่าน้ำแข็ง 500 บาท")
-  if (text.includes('จดค่า') || text.includes('รายจ่าย') || text.includes('ซื้อ')) {
-    const amountMatch = text.match(/(\d+)\s*(บาท)?/);
-    const amount = amountMatch ? parseFloat(amountMatch[1]) : 0;
-
+  if (text.includes('เธเธ”เธ') || /จดค่า|รายจ่าย|ซื้อ/i.test(text)) {
+    const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*(?:บาท|เธเธฒเธ—)?/);
+    const amount = amountMatch ? Number(amountMatch[1]) : 0;
     return {
       intent: 'add_expense',
       confidenceScore: 0.90,
-      extractedData: {
-        rawInput: text,
-        amount,
-        category: 'operating_expense',
-      },
+      extractedData: { rawInput: text, amount, category: 'operating_expense' },
       requiresConfirmation: true,
-      userMessage: `ป้าเตรียมบันทึกรายจ่าย ${amount} บาท ให้ตรวจและยืนยันก่อนบันทึกจริงนะ`,
+      userMessage: `เตรียมรายการค่าใช้จ่าย ${amount} บาท กรุณาตรวจสอบก่อนยืนยัน`,
     };
   }
 
@@ -52,6 +49,6 @@ export function parseTextIntent(inputText: string): ParsedDraftResult {
     confidenceScore: 0.40,
     extractedData: { rawInput: text },
     requiresConfirmation: true,
-    userMessage: 'ป้ายังไม่แน่ใจรายการนี้ ลองบอกป้าอีกครั้งแบบชัดเจนได้เลยนะ',
+    userMessage: 'ยังไม่แน่ใจรายการนี้ กรุณาลองบอกใหม่ให้ชัดเจน',
   };
 }

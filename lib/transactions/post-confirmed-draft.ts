@@ -36,6 +36,30 @@ function readSaleItems(data: Record<string, unknown>): SaleItem[] {
   });
 }
 
+async function resolveCatalogItem(admin: any, data: Record<string, unknown>): Promise<SaleItem[]> {
+  const productName = typeof data.productName === 'string' ? data.productName.trim() : '';
+  const quantity = Number(data.quantity || 1);
+  if (!productName || !Number.isFinite(quantity) || quantity <= 0) return [];
+
+  const { data: products, error } = await admin
+    .from('products')
+    .select('id,name,base_price,cost_price')
+    .eq('store_id', storeId)
+    .ilike('name', `%${productName}%`)
+    .limit(2);
+  const rows = (products || []) as Array<Record<string, unknown>>;
+  if (error || rows.length !== 1) return [];
+
+  const product = rows[0];
+  return [{
+    productId: String(product.id),
+    name: String(product.name),
+    quantity,
+    unitPrice: Number(product.base_price),
+    unitCost: Number(product.cost_price || 0),
+  }];
+}
+
 export async function postConfirmedDraft(draft: CommandDraft): Promise<PostingResult> {
   if (draft.intent !== 'create_sale') return { applied: false, reason: 'unsupported_intent' };
   const items = readSaleItems(draft.draft_data);
@@ -44,7 +68,9 @@ export async function postConfirmedDraft(draft: CommandDraft): Promise<PostingRe
   }
 
   const admin = createClient(supabaseUrl, serviceRoleKey);
-  const subtotal = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
+  const resolvedItems = items.length ? items : await resolveCatalogItem(admin, draft.draft_data);
+  if (!resolvedItems.length) return { applied: false, reason: 'missing_sale_items' };
+  const subtotal = resolvedItems.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0);
   const paymentMethod = draft.draft_data.paymentMethod === 'promptpay' ? 'promptpay' : 'cash';
   const orderNumber = `AI-${draft.id}`;
 
@@ -74,7 +100,7 @@ export async function postConfirmedDraft(draft: CommandDraft): Promise<PostingRe
   }
 
   const { error: itemsError } = await admin.from('order_items').insert(
-    items.map((item) => ({
+    resolvedItems.map((item) => ({
       order_id: order.id,
       product_id: item.productId,
       product_name: item.name,
