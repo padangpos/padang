@@ -1,13 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePosStore } from '@/lib/store/usePosStore';
 import { ArrowLeft, Plus, Camera, Search, Sparkles, X, Check, Image as ImageIcon, Upload } from 'lucide-react';
 import { Product } from '@/lib/types/database';
 
 export default function ProductsPage() {
-  const { products, categories, addProduct } = usePosStore();
+  const { products, categories, addProduct, setProducts } = usePosStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [saveError, setSaveError] = useState('');
+
+  useEffect(() => {
+    fetch('/api/products')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('โหลดสินค้าไม่สำเร็จ');
+        const payload = await response.json();
+        setProducts(payload.products || []);
+      })
+      .catch(() => setSaveError('ยังโหลด Catalog จากฐานข้อมูลไม่ได้'))
+      .finally(() => setIsLoading(false));
+  }, [setProducts]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
 
@@ -36,22 +49,13 @@ export default function ProductsPage() {
     return matchesCat && matchesSearch;
   });
 
-  const handleSaveProduct = () => {
+  const handleSaveProduct = async () => {
     if (!newProductName || !newProductPrice) return;
-    const newProd: Product = {
-      id: `prod-${Date.now()}`,
-      store_id: 'store-1',
-      category_id: newProductCatId,
-      name: newProductName,
-      base_price: parseFloat(newProductPrice) || 0,
-      cost_price: parseFloat(newProductCost) || 0,
-      image_url: newProductImageUrl || undefined,
-      is_active: true,
-      track_inventory: true,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
-    addProduct(newProd);
+    setSaveError('');
+    const response = await fetch('/api/products', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name: newProductName, base_price: parseFloat(newProductPrice), cost_price: parseFloat(newProductCost) || 0, image_url: newProductImageUrl || undefined }) });
+    const payload = await response.json();
+    if (!response.ok) { setSaveError(payload.error || 'บันทึกสินค้าไม่สำเร็จ'); return; }
+    addProduct(payload.product);
     setNewProductName('');
     setNewProductPrice('');
     setNewProductCost('');
@@ -117,6 +121,7 @@ export default function ProductsPage() {
 
       {/* Main Content */}
       <main className="flex-1 p-4 max-w-4xl w-full mx-auto space-y-4">
+        {saveError && <div className="rounded-xl border border-padaeng-red/30 bg-padaeng-red-light px-3 py-2 text-sm text-padaeng-red">{saveError}</div>}
         {/* Search & Category Filter */}
         <div className="bg-white p-3 rounded-padaeng border border-padaeng-border space-y-3">
           <div className="relative">
@@ -155,7 +160,7 @@ export default function ProductsPage() {
 
         {/* Product List with Image Thumbnails */}
         <div className="bg-white rounded-padaeng border border-padaeng-border divide-y divide-padaeng-border">
-          {filteredProducts.map((p) => (
+          {isLoading ? <div className="p-6 text-center text-sm text-padaeng-muted">กำลังโหลด Catalog…</div> : filteredProducts.length === 0 ? <div className="p-6 text-center text-sm text-padaeng-muted">ยังไม่มีสินค้าใน Catalog — เพิ่มสินค้าเพื่อให้ Draft จาก LINE จับคู่ได้</div> : filteredProducts.map((p) => (
             <div key={p.id} className="p-3.5 flex items-center justify-between space-x-3">
               <div className="flex items-center space-x-3">
                 {/* Image Thumbnail */}

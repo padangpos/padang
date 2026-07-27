@@ -63,9 +63,7 @@ async function resolveCatalogItem(admin: any, data: Record<string, unknown>): Pr
 export async function postConfirmedDraft(draft: CommandDraft): Promise<PostingResult> {
   if (draft.intent !== 'create_sale') return { applied: false, reason: 'unsupported_intent' };
   const items = readSaleItems(draft.draft_data);
-  if (!items.length || !supabaseUrl || !serviceRoleKey) {
-    return { applied: false, reason: !supabaseUrl || !serviceRoleKey ? 'missing_server_config' : 'missing_sale_items' };
-  }
+  if (!supabaseUrl || !serviceRoleKey) return { applied: false, reason: 'missing_server_config' };
 
   const admin = createClient(supabaseUrl, serviceRoleKey);
   const resolvedItems = items.length ? items : await resolveCatalogItem(admin, draft.draft_data);
