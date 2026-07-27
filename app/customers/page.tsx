@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, UserPlus, Award, Search, X, Plus, Star } from 'lucide-react';
 import { recordAuditLog } from '@/lib/audit/logger';
@@ -11,6 +11,12 @@ export default function CustomersPage() {
     { id: 'c-2', name: 'คุณนภา สุขสันต์', phone: '089-777-6666', points: 60, tier: 'Standard' },
     { id: 'c-3', name: 'คุณอนันต์ มั่นคง', phone: '082-555-4444', points: 20, tier: 'Standard' },
   ]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch('/api/customers').then((response) => response.json()).then((body) => {
+      if (Array.isArray(body.customers)) setCustomers(body.customers.map((customer: { id: string; display_name: string; phone_number?: string; points: number }) => ({ id: customer.id, name: customer.display_name, phone: customer.phone_number || '', points: customer.points, tier: customer.points >= 100 ? 'Gold' : 'Standard' })));
+    }).catch(() => undefined).finally(() => setLoading(false));
+  }, []);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [showAddModal, setShowAddModal] = useState(false);
@@ -28,7 +34,7 @@ export default function CustomersPage() {
     (c) => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery)
   );
 
-  const handleSaveCustomer = () => {
+  const handleSaveCustomer = async () => {
     if (!nameInput || !phoneInput) return;
     const newCust = {
       id: `c-${Date.now()}`,
@@ -37,18 +43,25 @@ export default function CustomersPage() {
       points: 10, // Welcome bonus
       tier: 'Standard',
     };
+    const response = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: nameInput, phoneNumber: phoneInput }) });
+    if (!response.ok) { alert('บันทึกลูกค้าไม่สำเร็จ'); return; }
+    const saved = await response.json();
+    newCust.id = saved.customer.id;
     setCustomers([newCust, ...customers]);
     setNameInput('');
     setPhoneInput('');
     setShowAddModal(false);
   };
 
-  const handleSavePoints = () => {
+  const handleSavePoints = async () => {
     if (!selectedCust || !pointsInput) return;
     const pts = parseInt(pointsInput, 10) || 0;
     const newPoints = Math.max(0, selectedCust.points + pts);
 
-    setCustomers(customers.map((c) => (c.id === selectedCust.id ? { ...c, points: newPoints } : c)));
+    const response = await fetch('/api/customers', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'points', id: selectedCust.id, amount: pts }) });
+    if (!response.ok) { alert('ปรับคะแนนไม่สำเร็จ'); return; }
+    const saved = await response.json();
+    setCustomers(customers.map((c) => (c.id === selectedCust.id ? { ...c, points: saved.customer.points } : c)));
     recordAuditLog('store-1', 'adjust_points', 'customer', selectedCust.id, {
       previousPoints: selectedCust.points,
       newPoints,

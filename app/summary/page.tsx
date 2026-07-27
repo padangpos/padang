@@ -1,23 +1,35 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, PieChart, Send, CheckCircle2, Lock, Unlock, AlertCircle } from 'lucide-react';
 import { recordAuditLog } from '@/lib/audit/logger';
 
 export default function SummaryPage() {
   const [shiftStatus, setShiftStatus] = useState<'open' | 'closed'>('open');
+  const [shiftId, setShiftId] = useState('');
+  const [loading, setLoading] = useState(true);
   const [openingCash, setOpeningCash] = useState(1000);
   const [countedCashInput, setCountedCashInput] = useState('');
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [showLineModal, setShowLineModal] = useState(false);
 
-  // Financial Summary Totals
-  const totalSales = 8450;
-  const cashSales = 4250;
-  const promptpaySales = 3200;
-  const cardSales = 1000;
-  const totalExpenses = 850;
+  const [totalSales, setTotalSales] = useState(0);
+  const [cashSales, setCashSales] = useState(0);
+  const [promptpaySales, setPromptpaySales] = useState(0);
+  const [cardSales, setCardSales] = useState(0);
+  const [totalExpenses, setTotalExpenses] = useState(0);
+  useEffect(() => {
+    Promise.all([fetch('/api/reports').then((r) => r.json()), fetch('/api/shifts').then((r) => r.json())]).then(([report, shift]) => {
+      setTotalSales(Number(report.summary?.totalSales || 0));
+      setTotalExpenses(Number(report.summary?.totalExpenses || 0));
+      setCashSales(Number(report.summary?.cashSales || 0));
+      setPromptpaySales(Number(report.summary?.promptpaySales || 0));
+      setCardSales(Number(report.summary?.cardSales || 0));
+      if (shift.shift) { setShiftId(shift.shift.id); setShiftStatus('open'); setOpeningCash(Number(shift.shift.opening_cash || 0)); }
+      else setShiftStatus('closed');
+    }).catch(() => undefined).finally(() => setLoading(false));
+  }, []);
   const netTotal = totalSales - totalExpenses;
 
   const expectedCashInDrawer = openingCash + cashSales;
@@ -25,7 +37,8 @@ export default function SummaryPage() {
   const discrepancy = countedCash - expectedCashInDrawer;
 
   const handleCloseShift = () => {
-    setShiftStatus('closed');
+    if (!shiftId) return;
+    fetch('/api/shifts', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'close', id: shiftId, closingCash: countedCash }) }).then((response) => { if (!response.ok) throw new Error(); setShiftStatus('closed'); }).catch(() => alert('ปิดกะขายไม่สำเร็จ'));
     recordAuditLog('store-1', 'close_shift', 'shift', 'shift-1', {
       openingCash,
       expectedCash: expectedCashInDrawer,

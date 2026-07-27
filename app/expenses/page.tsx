@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Plus, Camera, Sparkles, X, Check, FileText } from 'lucide-react';
 import { recordAuditLog } from '@/lib/audit/logger';
@@ -11,6 +11,12 @@ export default function ExpensesPage() {
     { id: 'exp-2', title: 'ค่าไฟฟ้าประจำเดือน', amount: 4200, category: 'ค่าน้ำ/ค่าไฟ/สาธารณูปโภค', date: 'เมื่อวาน' },
     { id: 'exp-3', title: 'ค่าแก้วและถุงพลาสติก', amount: 850, category: 'วัสดุสิ้นเปลือง', date: '24 ก.ค. 2026' },
   ]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    fetch('/api/expenses').then((response) => response.json()).then((body) => {
+      if (Array.isArray(body.expenses)) setExpenses(body.expenses.map((expense: { id: string; title: string; amount: number; category: string; created_at: string }) => ({ ...expense, date: new Date(expense.created_at).toLocaleString('th-TH') })));
+    }).catch(() => undefined).finally(() => setLoading(false));
+  }, []);
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
@@ -42,7 +48,7 @@ export default function ExpensesPage() {
 
   const totalExpenseSum = expenses.reduce((sum, item) => sum + item.amount, 0);
 
-  const handleSaveExpense = () => {
+  const handleSaveExpense = async () => {
     if (!titleInput || !amountInput) return;
     const newExpense = {
       id: `exp-${Date.now()}`,
@@ -52,6 +58,10 @@ export default function ExpensesPage() {
       date: 'วันนี้ ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
     };
 
+    const response = await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newExpense.title, amount: newExpense.amount, category: newExpense.category }) });
+    if (!response.ok) { alert('บันทึกรายจ่ายไม่สำเร็จ'); return; }
+    const saved = await response.json();
+    newExpense.id = saved.expense.id;
     setExpenses([newExpense, ...expenses]);
     recordAuditLog('store-1', 'create_expense', 'expense', newExpense.id, { title: titleInput, amount: newExpense.amount });
 
@@ -60,7 +70,7 @@ export default function ExpensesPage() {
     setShowAddModal(false);
   };
 
-  const handleConfirmPhotoReceiptDraft = () => {
+  const handleConfirmPhotoReceiptDraft = async () => {
     const newExpense = {
       id: `exp-ocr-${Date.now()}`,
       title: draftReceipt.title,
@@ -69,6 +79,10 @@ export default function ExpensesPage() {
       date: 'วันนี้ ' + new Date().toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' }),
     };
 
+    const response = await fetch('/api/expenses', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: newExpense.title, amount: newExpense.amount, category: newExpense.category }) });
+    if (!response.ok) { alert('บันทึกร่างรายจ่ายไม่สำเร็จ'); return; }
+    const saved = await response.json();
+    newExpense.id = saved.expense.id;
     setExpenses([newExpense, ...expenses]);
     recordAuditLog('store-1', 'confirm_expense_draft', 'expense', newExpense.id, draftReceipt);
     setShowPhotoReceiptModal(false);
@@ -125,7 +139,7 @@ export default function ExpensesPage() {
 
         {/* Expense List */}
         <div className="bg-white rounded-padaeng border border-padaeng-border divide-y divide-padaeng-border">
-          {expenses.map((e) => (
+          {loading ? <div className="p-6 text-center text-sm text-padaeng-muted">กำลังโหลดข้อมูล...</div> : expenses.length === 0 ? <div className="p-6 text-center text-sm text-padaeng-muted">ยังไม่มีรายจ่าย</div> : expenses.map((e) => (
             <div key={e.id} className="p-4 flex items-center justify-between">
               <div>
                 <span className="text-[11px] text-padaeng-muted block">{e.category}</span>
