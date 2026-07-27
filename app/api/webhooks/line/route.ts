@@ -82,11 +82,15 @@ export async function POST(req: Request) {
       if (event.type !== 'message' || !event.message) continue;
 
       const parsedMessage = parseLineMessage(event.message);
+      const parsedWithSource: ParsedDraftResult = {
+        ...parsedMessage.parsed,
+        extractedData: { ...parsedMessage.parsed.extractedData, lineUserId: typeof event.source?.userId === 'string' ? event.source.userId : undefined },
+      };
       const draft = await createServerCommandDraft({
         branchId: '00000000-0000-0000-0000-000000000002',
         rawInput: parsedMessage.rawInput,
         inputType: parsedMessage.inputType,
-        parsed: parsedMessage.parsed,
+        parsed: parsedWithSource,
       });
       // LINE's in-app redirect can strip LIFF path state on some clients.
       // Use the HTTPS app route directly so the Draft ID is never lost.
