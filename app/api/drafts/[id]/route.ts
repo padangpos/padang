@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getServerCommandDraft, updateServerCommandDraftStatus } from '@/lib/ai/server-draft-store';
+import { postConfirmedDraft } from '@/lib/transactions/post-confirmed-draft';
 
 type RouteContext = { params: { id: string } };
 
@@ -26,7 +27,8 @@ export async function PATCH(request: Request, { params }: RouteContext) {
       return NextResponse.json({ error: 'Draft not found or is no longer pending' }, { status: 409 });
     }
 
-    return NextResponse.json({ draft, mutationApplied: false });
+    const posting = status === 'confirmed' ? await postConfirmedDraft(draft) : { applied: false, reason: 'rejected' as const };
+    return NextResponse.json({ draft, mutationApplied: posting.applied, posting });
   } catch {
     return NextResponse.json({ error: 'Invalid draft update request' }, { status: 400 });
   }
