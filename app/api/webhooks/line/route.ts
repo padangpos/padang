@@ -90,7 +90,7 @@ export async function POST(req: Request) {
         parsed: parsedMessage.parsed,
       });
       const liffUrl = liffId
-        ? `https://liff.line.me/${liffId}?liff.state=${encodeURIComponent(`/liff/drafts/${draft.id}`)}`
+        ? `https://liff.line.me/${liffId}/liff/drafts/${draft.id}`
         : `${appUrl}/liff/drafts/${draft.id}`;
       const replyMessage: LineReplyMessage = {
         text: `${parsedMessage.parsed.userMessage}\n\nOpen Draft to review and confirm:\n${liffUrl}`,
