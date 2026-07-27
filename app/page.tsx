@@ -1,4 +1,5 @@
 import Link from "next/link";
+import BrandLogo from "@/components/brand/BrandLogo";
 import {
   ShoppingCart,
   PauseCircle,
@@ -41,7 +42,8 @@ export default function HomePage() {
       <div>
         {/* Brand Header */}
         <header className="py-5 text-center border-b border-padaeng-border mb-5">
-          <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-padaeng-red text-white text-2xl font-black mb-2 shadow-md">
+          <BrandLogo variant="mark" className="w-24 h-24 mx-auto mb-2" priority />
+          <div className="hidden inline-flex items-center justify-center w-16 h-16 rounded-full bg-padaeng-red text-white text-2xl font-black mb-2 shadow-md">
             ป้า
           </div>
           <h1 className="text-2xl font-bold text-padaeng-text">ป้าแดง POS</h1>

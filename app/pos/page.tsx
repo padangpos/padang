@@ -9,6 +9,7 @@ import CartDrawer from '@/components/pos/CartDrawer';
 import PaymentModal from '@/components/pos/PaymentModal';
 import ReceiptModal from '@/components/pos/ReceiptModal';
 import QuickSaleModal from '@/components/pos/QuickSaleModal';
+import BrandLogo from '@/components/brand/BrandLogo';
 import { ShoppingBag, ArrowLeft, PauseCircle, Package, Calculator } from 'lucide-react';
 import { recordAuditLog } from '@/lib/audit/logger';
 
@@ -76,6 +77,7 @@ export default function PosPage() {
           >
             <ArrowLeft className="w-5 h-5" />
           </Link>
+          <BrandLogo variant="mark" className="w-10 h-10 rounded-lg" priority />
           <div>
             <h1 className="font-bold text-base text-padaeng-text leading-tight">{storeName}</h1>
             <span className="text-xs text-padaeng-red font-semibold">หน้าขาย POS</span>
